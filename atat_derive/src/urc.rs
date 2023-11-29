@@ -25,7 +25,6 @@ pub fn atat_urc(input: TokenStream) -> TokenStream {
                 "missing #[at_urc(...)] attribute",
             )
         });
-
         let variant_ident = variant.ident.clone();
         let parse_arm = match variant.fields.clone() {
             Some(Fields::Named(_)) => {
@@ -63,14 +62,20 @@ pub fn atat_urc(input: TokenStream) -> TokenStream {
 
             #[inline]
             fn parse(resp: &[u8]) -> Option<Self::Response> {
+                //esp_println::println!("resp1a");
                 // FIXME: this should be more generic than ':' (Split using #code?)
-                let index = resp.iter().position(|&x| x == b':').unwrap_or(resp.len());
-                Some(match &resp[..index] {
-                    #(
-                        #match_arms
-                    )*
-                    _ => return None
-                })
+                //let index = resp.iter().position(|&x| x == b':').unwrap_or(resp.len());
+                // esp_println::println!("Did not match {:?}", matching);
+                let index = resp.len();
+                //esp_println::println!("resp1b {:?}", &resp[..index]);
+                Some(
+                    match &resp[..index] {
+                        #(
+                            #match_arms
+                        )*
+                        _ => return None
+                    }
+                )
             }
         }
 
@@ -79,12 +84,17 @@ pub fn atat_urc(input: TokenStream) -> TokenStream {
             fn parse<'a>(
                 buf: &'a [u8],
             ) -> Result<(&'a [u8], usize), atat::digest::ParseError> {
+                //esp_println::println!("Parser 'a1 {:?}", buf);
                 let (_, r) = atat::nom::branch::alt((
                     #(
                         #digest_arms
                     )*
                 ))(buf)?;
 
+                //esp_println::println!("Parser 'a2 {:?}", r);
+                // let b = (buf, buf.len());
+                // esp_println::println!("Parser 'a2 b{:?}", b);
+                // Ok((b))
                 Ok(r)
             }
         }

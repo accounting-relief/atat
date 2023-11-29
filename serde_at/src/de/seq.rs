@@ -39,7 +39,7 @@ impl<'a, 'de> de::SeqAccess<'de> for SeqAccess<'a, 'de> {
             Some(c) => {
                 if self.first {
                     self.first = false;
-                } else if c != b'+' {
+                } else if c != b'+' &&  c != b'^' {
                     if let Some(len) = self.len {
                         if self.count == len - 1 {
                             self.de.set_is_trailing_parsing();

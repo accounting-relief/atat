@@ -33,7 +33,13 @@ nom = { version = "^7.1", default-features = false }
 
 log = { version = "^0.4", default-features = false, optional = true }
 defmt = { version = "^0.3", optional = true }
-
+#esp-println = "0.7.1"
+esp-println = { version = "0.7.0", default-features = false, features = [
+    "esp32s3",
+    "jtag_serial",
+    "critical-section",
+    "colors",
+] }
 [dev-dependencies]
 embassy-time = { version = "0.1.0", features = ["std", "generic-queue"] }
 critical-section = { version = "1.1", features = ["std"] }
