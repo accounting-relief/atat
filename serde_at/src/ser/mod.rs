@@ -315,13 +315,17 @@ impl<'a, 'b> ser::Serializer for &'a mut Serializer<'b> {
         self,
         _name: &'static str,
         variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
         value: &T,
     ) -> Result<Self::Ok>
     where
         T: ser::Serialize + ?Sized,
     {
-        self.serialize_u32(variant_index)?;
+        if variant.len() != 0 {
+            self.serialize_bytes(variant.as_bytes())?;
+        } else {
+            self.serialize_u32(variant_index)?;
+        }
         self.push(b',')?;
         value.serialize(self)
     }
