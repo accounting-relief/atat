@@ -1,4 +1,5 @@
-use core::marker::PhantomData;
+use core::{marker::PhantomData, sync::atomic::Ordering};
+//use esp_println::println;
 
 use crate::InternalError;
 
@@ -62,11 +63,13 @@ pub trait Parser {
 /// but can be others as well depending on manufacturer.
 ///
 /// Usually \<PROMPT> can be one of \['>', '@'], and is command specific and only valid for few selected commands.
+use core::sync::atomic::AtomicBool;
 pub struct AtDigester<P: Parser> {
     _urc_parser: PhantomData<P>,
     custom_success: fn(&[u8]) -> Result<(&[u8], usize), ParseError>,
     custom_error: fn(&[u8]) -> Result<(&[u8], usize), ParseError>,
     custom_prompt: fn(&[u8]) -> Result<(u8, usize), ParseError>,
+    expecting_response: Option<&'static AtomicBool>,
 }
 
 impl<P: Parser> AtDigester<P> {
@@ -77,9 +80,16 @@ impl<P: Parser> AtDigester<P> {
             custom_success: |_| Err(ParseError::NoMatch),
             custom_error: |_| Err(ParseError::NoMatch),
             custom_prompt: |_| Err(ParseError::NoMatch),
+            expecting_response: None,
         }
     }
-
+    #[must_use]
+    pub fn with_expecting_response_flag(self, expecting_response: &'static AtomicBool) -> Self {
+        Self {
+            expecting_response: Some(expecting_response),
+            ..self
+        }
+    }
     #[must_use]
     pub fn with_custom_success(self, f: fn(&[u8]) -> Result<(&[u8], usize), ParseError>) -> Self {
         Self {
@@ -114,6 +124,7 @@ impl<P: Parser> Default for AtDigester<P> {
 impl<P: Parser> Digester for AtDigester<P> {
     fn digest<'a>(&mut self, input: &'a [u8]) -> (DigestResult<'a>, usize) {
         // 1. Optionally discard space and echo
+        //println!("1. {:?}", input);
         let buf = parser::trim_start_ascii_space(input);
         let space_bytes = input.len() - buf.len();
         let (buf, space_and_echo_bytes) = match nom::combinator::opt(parser::echo)(buf) {
@@ -125,13 +136,18 @@ impl<P: Parser> Digester for AtDigester<P> {
         // Incomplete. Eat whitespace and echo and do nothing else.
         let incomplete = (DigestResult::None, space_and_echo_bytes);
 
-        // 2. Match for URC's
-        match P::parse(buf) {
-            Ok((urc, len)) => return (DigestResult::Urc(urc), len),
-            Err(ParseError::Incomplete) => return incomplete,
-            _ => {}
+        // println!("2. {:?}", input);
+        //2. Match for URC's
+        if self.expecting_response.is_none()
+            || !self.expecting_response.unwrap().load(Ordering::Relaxed)
+        {
+            match P::parse(buf) {
+                Ok((urc, len)) => return (DigestResult::Urc(urc), len),
+                Err(ParseError::Incomplete) => return incomplete,
+                _ => {}
+            }
         }
-
+        // println!("3.");
         // 3. Parse for success responses
         // Custom successful replies first, if any
         match (self.custom_success)(buf) {
@@ -145,6 +161,7 @@ impl<P: Parser> Digester for AtDigester<P> {
             _ => {}
         }
 
+        // println!("4. ");
         // Generic success replies
         match parser::success_response(buf) {
             Ok((_, (result, len))) => return (result, len + space_and_echo_bytes),

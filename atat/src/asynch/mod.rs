@@ -25,7 +25,6 @@ pub trait AtatClient {
             if attempt > 1 {
                 debug!("Attempt {}:", attempt);
             }
-
             match self.send(cmd).await {
                 Err(Error::Timeout) => {}
                 Err(Error::Parse) => {

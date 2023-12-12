@@ -103,8 +103,8 @@ impl<const L: usize> AtatCmd<L> for String<L> {
     }
 
     fn parse(&self, resp: Result<&[u8], InternalError>) -> Result<Self::Response, Error> {
-        let utf8_string =
-            core::str::from_utf8(resp.map_err(Error::from)?).map_err(|_| Error::Parse)?;
+        let utf8_string = core::str::from_utf8(resp.map_err(Error::from)?)
+            .map_err(|_| Error::Parse)?;
         String::try_from(utf8_string).map_err(|_| Error::Parse)
     }
 }

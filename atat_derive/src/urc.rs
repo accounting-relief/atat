@@ -64,9 +64,9 @@ pub fn atat_urc(input: TokenStream) -> TokenStream {
             fn parse(resp: &[u8]) -> Option<Self::Response> {
                 //esp_println::println!("resp1a");
                 // FIXME: this should be more generic than ':' (Split using #code?)
-                //let index = resp.iter().position(|&x| x == b':').unwrap_or(resp.len());
+                let index = resp.iter().position(|&x| x == b':').unwrap_or(resp.len());
                 // esp_println::println!("Did not match {:?}", matching);
-                let index = resp.len();
+                //let index = resp.len();
                 //esp_println::println!("resp1b {:?}", &resp[..index]);
                 Some(
                     match &resp[..index] {
