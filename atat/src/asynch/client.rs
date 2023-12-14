@@ -14,6 +14,7 @@ pub struct Client<'a, W: Write, const INGRESS_BUF_SIZE: usize> {
     res_channel: &'a ResponseChannel<INGRESS_BUF_SIZE>,
     config: Config,
     cooldown_timer: Option<Timer>,
+
 }
 
 impl<'a, W: Write, const INGRESS_BUF_SIZE: usize> Client<'a, W, INGRESS_BUF_SIZE> {
@@ -114,12 +115,16 @@ impl<W: Write, const INGRESS_BUF_SIZE: usize> AtatClient for Client<'_, W, INGRE
         let cmd_vec = cmd.as_bytes();
         let cmd_slice = cmd.get_slice(&cmd_vec);
         if !Cmd::EXPECTS_RESPONSE_CODE {
+            //MODEM_STATE.store(crate::ModemState::WaitingForNoReply, core::sync::atomic::Ordering::Relaxed);
             self.send_command(cmd_slice).await?;
+            //MODEM_STATE.store(crate::ModemState::WaitingForUrc, core::sync::atomic::Ordering::Relaxed);
             cmd.parse(Ok(&[]))
         } else {
+            //MODEM_STATE.store(crate::ModemState::WaitingForReply, core::sync::atomic::Ordering::Relaxed);
             let response = self
                 .send_request(cmd_slice, Duration::from_millis(Cmd::MAX_TIMEOUT_MS.into()))
                 .await?;
+            //MODEM_STATE.store(crate::ModemState::WaitingForUrc, core::sync::atomic::Ordering::Relaxed);
             cmd.parse((&response).into())
         }
     }

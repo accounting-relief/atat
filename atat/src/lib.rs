@@ -217,7 +217,6 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::fallible_impl_from)]
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
-#![cfg_attr(feature = "async", allow(async_fn_in_trait))]
 #![feature(async_fn_in_trait)]
 // This mod MUST go first, so that the others see its macros.
 pub(crate) mod fmt;
@@ -261,6 +260,7 @@ pub use serde_at;
 #[cfg(feature = "derive")]
 pub use heapless;
 
+use atomic_enums::AtomicEnumU8;
 pub use buffers::Buffers;
 pub use config::Config;
 pub use digest::{AtDigester, AtDigester as DefaultDigester, DigestResult, Digester, Parser};
@@ -270,6 +270,43 @@ pub use response::Response;
 pub use response_channel::{ResponseChannel, ResponsePublisher, ResponseSubscription};
 pub use traits::{AtatCmd, AtatResp, AtatUrc};
 pub use urc_channel::{AtatUrcChannel, UrcChannel, UrcSubscription};
+#[derive(PartialEq)]
+pub enum ModemState {
+    WaitingForReply = 0,
+    WaitingForNoReply = 1,
+    WaitingForUrc = 2,
+}
+#[macro_use]
+extern crate lazy_static;
+lazy_static! {
+    pub static ref EXPECT_SISR: AtomicEnumU8<ModemState> =
+        AtomicEnumU8::new(ModemState::WaitingForUrc);
+}
+lazy_static! {
+    pub static ref EXPECT_SISW: AtomicEnumU8<ModemState> =
+        AtomicEnumU8::new(ModemState::WaitingForUrc);
+}
+impl TryFrom<u8> for ModemState {
+    type Error = ();
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        match v {
+            0 => Ok(Self::WaitingForReply),
+            1 => Ok(Self::WaitingForNoReply),
+            2 => Ok(Self::WaitingForUrc),
+            _ => Err(()),
+        }
+    }
+}
+impl core::convert::Into<u8> for ModemState {
+    fn into(self) -> u8 {
+        match self {
+            ModemState::WaitingForReply => 0,
+            ModemState::WaitingForNoReply => 1,
+            ModemState::WaitingForUrc => 2,
+        }
+    }
+}
 
 #[cfg(test)]
 #[cfg(feature = "defmt")]

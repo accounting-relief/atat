@@ -1,5 +1,5 @@
-use core::{marker::PhantomData, sync::atomic::Ordering};
-//use esp_println::println;
+use core::marker::PhantomData;
+use esp_println::println;
 
 use crate::InternalError;
 
@@ -124,7 +124,6 @@ impl<P: Parser> Default for AtDigester<P> {
 impl<P: Parser> Digester for AtDigester<P> {
     fn digest<'a>(&mut self, input: &'a [u8]) -> (DigestResult<'a>, usize) {
         // 1. Optionally discard space and echo
-        //println!("1. {:?}", input);
         let buf = parser::trim_start_ascii_space(input);
         let space_bytes = input.len() - buf.len();
         let (buf, space_and_echo_bytes) = match nom::combinator::opt(parser::echo)(buf) {
@@ -133,26 +132,25 @@ impl<P: Parser> Digester for AtDigester<P> {
             Err(_) => panic!("NOM ERROR - opt(echo)"),
         };
 
+        println!("I {:?}", buf);
         // Incomplete. Eat whitespace and echo and do nothing else.
         let incomplete = (DigestResult::None, space_and_echo_bytes);
 
-        // println!("2. {:?}", input);
-        //2. Match for URC's
-        if self.expecting_response.is_none()
-            || !self.expecting_response.unwrap().load(Ordering::Relaxed)
-        {
-            match P::parse(buf) {
-                Ok((urc, len)) => return (DigestResult::Urc(urc), len),
-                Err(ParseError::Incomplete) => return incomplete,
-                _ => {}
-            }
+        // if self.expecting_response.is_none()
+        //              || !self.expecting_response.unwrap().load(Ordering::Relaxed)
+        //          {
+        match P::parse(buf) {
+            Ok((urc, len)) => return (DigestResult::Urc(urc), len),
+            Err(ParseError::Incomplete) => return incomplete,
+            _ => {}
         }
+    //  }
         // println!("3.");
         // 3. Parse for success responses
         // Custom successful replies first, if any
         match (self.custom_success)(buf) {
             Ok((response, len)) => {
-                return (
+                                            return (
                     DigestResult::Response(Ok(response)),
                     len + space_and_echo_bytes,
                 )
@@ -166,7 +164,7 @@ impl<P: Parser> Digester for AtDigester<P> {
         match parser::success_response(buf) {
             Ok((_, (result, len))) => return (result, len + space_and_echo_bytes),
             Err(nom::Err::Incomplete(_)) => return incomplete,
-            _ => {}
+_ => {}
         }
 
         // Custom prompts for data replies first, if any
@@ -175,8 +173,8 @@ impl<P: Parser> Digester for AtDigester<P> {
                 return (DigestResult::Prompt(response), len + space_and_echo_bytes)
             }
             Err(ParseError::Incomplete) => return incomplete,
-            _ => {}
-        }
+                        _ => {}
+                    }
 
         // Generic prompts for data
         if let Ok((_, (result, len))) = parser::prompt_response(buf) {
@@ -185,22 +183,132 @@ impl<P: Parser> Digester for AtDigester<P> {
 
         // 4. Parse for error responses
         // Custom error matches first, if any
-        match (self.custom_error)(buf) {
-            Ok((response, len)) => {
-                return (
-                    DigestResult::Response(Err(InternalError::Custom(response))),
-                    len + space_and_echo_bytes,
-                )
-            }
-            Err(ParseError::Incomplete) => return incomplete,
-            _ => {}
-        }
+                    match (self.custom_error)(buf) {
+                        Ok((response, len)) => {
+                            return (
+                                DigestResult::Response(Err(InternalError::Custom(response))),
+                                len + space_and_echo_bytes,
+                            )
+                        }
+                        Err(ParseError::Incomplete) => return incomplete,
+                        _ => {}
+                    }
 
-        // Generic error matches
-        if let Ok((_, (result, len))) = parser::error_response(buf) {
-            return (result, len + space_and_echo_bytes);
-        }
+                    // Generic error matches
+                    if let Ok((_, (result, len))) = parser::error_response(buf) {
+                        return (result, len + space_and_echo_bytes);
+                    }
+                //        println!("data ");
+        //2. Match for URC's
+        // match MODEM_STATE.load(Ordering::Relaxed) {
+        //     Some(s) => match s {
+        //         crate::ModemState::WaitingForReply | crate::ModemState::WaitingForNoReply => {
+        //             println!("matching for Reply");
+        //             match (self.custom_success)(buf) {
+        //                 Ok((response, len)) => {
+        //                     // println!("CUSTOM SUCCESS RESP");
+        //                     return (
+        //                         DigestResult::Response(Ok(response)),
+        //                         len + space_and_echo_bytes,
+        //                     );
+        //                 }
+        //                 Err(ParseError::Incomplete) => {                            println!("INC");
+        //                 return incomplete;},
+        //                 _ => {}
+        //             }
 
+        //             // println!("4. ");
+        //             // Generic success replies
+        //             match parser::success_response(buf) {
+        //                 Ok((_, (result, len))) => {
+        //                     println!("success_response");
+        //                     return (result, len + space_and_echo_bytes);
+        //                 }
+        //                 Err(nom::Err::Incomplete(_)) => {                            println!("INC");
+        //                 return incomplete;},
+        //                 _ => {}
+        //             }
+        //             match (self.custom_error)(buf) {
+        //                 Ok((response, len)) => {
+        //                     return (
+        //                         DigestResult::Response(Err(InternalError::Custom(response))),
+        //                         len + space_and_echo_bytes,
+        //                     )
+        //                 }
+        //                 Err(ParseError::Incomplete) => return incomplete,
+        //                 _ => {}
+        //             }
+
+        //             // Generic error matches
+        //             if let Ok((_, (result, len))) = parser::error_response(buf) {
+        //                 return (result, len + space_and_echo_bytes);
+        //             }
+        //         }
+        //         crate::ModemState::WaitingForUrc => {
+        //             println!("matching for URC");
+        //             match P::parse(buf) {
+                        //                 Ok((urc, len)) => {
+                            //                     println!("URC");
+                            //                     return (DigestResult::Urc(urc), len);
+                        //                 }
+        //                 Err(ParseError::Incomplete) => {
+                            
+                            //                     println!("INC");
+        //                     return incomplete;},
+        //                 _ => {}
+        //             }
+        //         }
+        //     },
+        //     None => todo!(),
+        // }
+        // if self.expecting_response.is_none()
+        //     || !self.expecting_response.unwrap().load(Ordering::Relaxed)
+        // {
+
+        //     println!("expecting URC ");
+
+        // } else {
+
+        //     println!("expecting REPLY ");
+        //     // println!("3.");
+        //     // 3. Parse for success responses
+        //     // Custom successful replies first, if any
+
+        //     // Custom prompts for data replies first, if any
+        //     match (self.custom_prompt)(buf) {
+        //         Ok((response, len)) => {
+        //             return (DigestResult::Prompt(response), len + space_and_echo_bytes)
+        //         }
+        //         Err(ParseError::Incomplete) => return incomplete,
+        //         _ => {}
+        //     }
+
+        //     // Generic prompts for data
+        //     if let Ok((_, (result, len))) = parser::prompt_response(buf) {
+        //         return (result, len + space_and_echo_bytes);
+        //     }
+
+        //     // 4. Parse for error responses
+        //     // Custom error matches first, if any
+        //     match (self.custom_error)(buf) {
+        //         Ok((response, len)) => {
+        //             return (
+        //                 DigestResult::Response(Err(InternalError::Custom(response))),
+        //                 len + space_and_echo_bytes,
+        //             )
+        //         }
+        //         Err(ParseError::Incomplete) => return incomplete,
+        //         _ => {}
+        //     }
+
+        //     // Generic error matches
+        //     if let Ok((_, (result, len))) = parser::error_response(buf) {
+        //         return (result, len + space_and_echo_bytes);
+        //     }
+        // }
+        println!("INC");
+
+        // println!("NO MATCH ",);
         // No matches at all.
         incomplete
     }
@@ -224,8 +332,8 @@ pub mod parser {
     };
 
     /// Matches the equivalent of regex: "\r\n{token}(:.*)?\r\n"
-    pub fn urc_helper<'a, T, Error: ParseError<&'a [u8]>>(
-        token: T,
+    pub fn urc_helper<'a, T, Error: ParseError<&'a [u8]>>( 
+        token: T,  
     ) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], (&'a [u8], usize), Error>
     where
         &'a [u8]: nom::Compare<T> + nom::FindSubstring<T>,
