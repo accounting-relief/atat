@@ -1,5 +1,5 @@
 use core::marker::PhantomData;
-use esp_println::println;
+// use esp_println::println;
 
 use crate::InternalError;
 
@@ -141,7 +141,9 @@ impl<P: Parser> Digester for AtDigester<P> {
         //              || !self.expecting_response.unwrap().load(Ordering::Relaxed)
         //          {
         match P::parse(buf) {
-            Ok((urc, len)) => {println!("URC");return (DigestResult::Urc(urc), len)},
+            Ok((urc, len)) => {
+                //println!("URC");
+                return (DigestResult::Urc(urc), len)},
             Err(ParseError::Incomplete) => return incomplete,
             _ => {}
         }
@@ -182,7 +184,7 @@ _ => {}
 
         // Generic prompts for data
         if let Ok((_, (result, len))) = parser::prompt_response(buf) {
-            println!("PRMPT");
+            //println!("PRMPT");
             return (result, len + space_and_echo_bytes);
         }
 
@@ -201,122 +203,9 @@ _ => {}
 
         // Generic error matches
         if let Ok((_, (result, len))) = parser::error_response(buf) {
-            println!("GENERR");
-
             return (result, len + space_and_echo_bytes);
         }
-                //        println!("data ");
-        //2. Match for URC's
-        // match MODEM_STATE.load(Ordering::Relaxed) {
-        //     Some(s) => match s {
-        //         crate::ModemState::WaitingForReply | crate::ModemState::WaitingForNoReply => {
-        //             println!("matching for Reply");
-        //             match (self.custom_success)(buf) {
-        //                 Ok((response, len)) => {
-        //                     // println!("CUSTOM SUCCESS RESP");
-        //                     return (
-        //                         DigestResult::Response(Ok(response)),
-        //                         len + space_and_echo_bytes,
-        //                     );
-        //                 }
-        //                 Err(ParseError::Incomplete) => {                            println!("INC");
-        //                 return incomplete;},
-        //                 _ => {}
-        //             }
-
-        //             // println!("4. ");
-        //             // Generic success replies
-        //             match parser::success_response(buf) {
-        //                 Ok((_, (result, len))) => {
-        //                     println!("success_response");
-        //                     return (result, len + space_and_echo_bytes);
-        //                 }
-        //                 Err(nom::Err::Incomplete(_)) => {                            println!("INC");
-        //                 return incomplete;},
-        //                 _ => {}
-        //             }
-        //             match (self.custom_error)(buf) {
-        //                 Ok((response, len)) => {
-        //                     return (
-        //                         DigestResult::Response(Err(InternalError::Custom(response))),
-        //                         len + space_and_echo_bytes,
-        //                     )
-        //                 }
-        //                 Err(ParseError::Incomplete) => return incomplete,
-        //                 _ => {}
-        //             }
-
-        //             // Generic error matches
-        //             if let Ok((_, (result, len))) = parser::error_response(buf) {
-        //                 return (result, len + space_and_echo_bytes);
-        //             }
-        //         }
-        //         crate::ModemState::WaitingForUrc => {
-        //             println!("matching for URC");
-        //             match P::parse(buf) {
-                        //                 Ok((urc, len)) => {
-                            //                     println!("URC");
-                            //                     return (DigestResult::Urc(urc), len);
-                        //                 }
-        //                 Err(ParseError::Incomplete) => {
-                            
-                            //                     println!("INC");
-        //                     return incomplete;},
-        //                 _ => {}
-        //             }
-        //         }
-        //     },
-        //     None => todo!(),
-        // }
-        // if self.expecting_response.is_none()
-        //     || !self.expecting_response.unwrap().load(Ordering::Relaxed)
-        // {
-
-        //     println!("expecting URC ");
-
-        // } else {
-
-        //     println!("expecting REPLY ");
-        //     // println!("3.");
-        //     // 3. Parse for success responses
-        //     // Custom successful replies first, if any
-
-        //     // Custom prompts for data replies first, if any
-        //     match (self.custom_prompt)(buf) {
-        //         Ok((response, len)) => {
-        //             return (DigestResult::Prompt(response), len + space_and_echo_bytes)
-        //         }
-        //         Err(ParseError::Incomplete) => return incomplete,
-        //         _ => {}
-        //     }
-
-        //     // Generic prompts for data
-        //     if let Ok((_, (result, len))) = parser::prompt_response(buf) {
-        //         return (result, len + space_and_echo_bytes);
-        //     }
-
-        //     // 4. Parse for error responses
-        //     // Custom error matches first, if any
-        //     match (self.custom_error)(buf) {
-        //         Ok((response, len)) => {
-        //             return (
-        //                 DigestResult::Response(Err(InternalError::Custom(response))),
-        //                 len + space_and_echo_bytes,
-        //             )
-        //         }
-        //         Err(ParseError::Incomplete) => return incomplete,
-        //         _ => {}
-        //     }
-
-        //     // Generic error matches
-        //     if let Ok((_, (result, len))) = parser::error_response(buf) {
-        //         return (result, len + space_and_echo_bytes);
-        //     }
-        // }
-        println!("INC");
-
-        // println!("NO MATCH ",);
-        // No matches at all.
+       
         incomplete
     }
 }
