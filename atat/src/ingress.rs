@@ -138,7 +138,10 @@ impl<
         assert!(self.pos <= self.buf.len());
 
         while self.pos > 0 {
-            let swallowed = match self.digester.digest(&self.buf[..self.pos]) {
+            esp_println::println!("bef dig");
+            let digested = self.digester.digest(&self.buf[..self.pos]);
+            esp_println::println!("after dig");
+            let swallowed = match digested {
                 (DigestResult::None, swallowed) => {
                     if swallowed > 0 {
                         //esp_println::println!("received e{:?}", self.buf);
@@ -184,10 +187,10 @@ impl<
                     match &resp {
                         Ok(r) => {
                             if r.is_empty() {
-                                //esp_println::println!("received OK{:?}", self.buf);
+                                esp_println::println!("received empty OK{:?}", self.buf);
                                 debug!("Received OK ({}/{})", swallowed, self.pos,)
                             } else {
-                                //esp_println::println!("received resp{:?}", self.buf);
+                                esp_println::println!("received resp{:?}", self.buf);
                                 debug!(
                                     "Received response ({}/{}): {:?}",
                                     swallowed,
@@ -197,7 +200,7 @@ impl<
                             }
                         }
                         Err(e) => {
-                            //esp_println::println!("received err{:?}", self.buf);
+                            esp_println::println!("received err{:?}", self.buf);
                             warn!(
                                 "Received error response ({}/{}): {:?}",
                                 swallowed, self.pos, e
@@ -272,8 +275,10 @@ impl<
                     match &resp {
                         Ok(r) => {
                             if r.is_empty() {
+                                esp_println::println!("received empty OK{:?}", r);
                                 debug!("Received OK ({}/{})", swallowed, self.pos,)
                             } else {
+                                esp_println::println!("received  OK{:?}", resp);
                                 debug!(
                                     "Received response ({}/{}): {:?}",
                                     swallowed,
@@ -283,6 +288,7 @@ impl<
                             }
                         }
                         Err(e) => {
+                            esp_println::println!("received Err{:?}", e);
                             warn!(
                                 "Received error response ({}/{}): {:?}",
                                 swallowed, self.pos, e
@@ -290,9 +296,13 @@ impl<
                         }
                     }
 
+                    esp_println::print!("Published {:?}" ,resp);
                     if let Err(frame) = self.res_publisher.try_publish(resp.into()) {
+                        esp_println::println!("FAILED PUBLISH");
+                        
                         self.res_publisher.publish(frame).await;
-                    }
+                        esp_println::println!("Waited to publish");
+                    } 
                     swallowed
                 }
             };

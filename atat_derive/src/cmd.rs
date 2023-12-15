@@ -25,6 +25,7 @@ pub fn atat_cmd(input: TokenStream) -> TokenStream {
         cmd_prefix,
         termination,
         quote_escape_strings,
+        expects_response_code,
     } = at_cmd.expect("missing #[at_cmd(...)] attribute");
 
     let ident_str = ident.to_string();
@@ -64,6 +65,15 @@ pub fn atat_cmd(input: TokenStream) -> TokenStream {
         Some(reattempt_on_parse_err) => {
             quote! {
                 const REATTEMPT_ON_PARSE_ERR: bool = #reattempt_on_parse_err;
+            }
+        }
+        None => quote! {},
+    };
+
+    let expects_response_code = match expects_response_code {
+        Some(expects_response_code) => {
+            quote! {
+                const EXPECTS_RESPONSE_CODE: bool = #expects_response_code;
             }
         }
         None => quote! {},
@@ -110,6 +120,8 @@ pub fn atat_cmd(input: TokenStream) -> TokenStream {
             #attempts
 
             #reattempt_on_parse_err
+            
+            #expects_response_code
 
             #[inline]
             fn as_bytes(&self) -> atat::heapless::Vec<u8, { #ident_len + #cmd_len }> {

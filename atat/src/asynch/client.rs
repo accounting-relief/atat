@@ -1,7 +1,8 @@
 use super::AtatClient;
 use crate::{
-    helpers::LossyStr, response_channel::ResponseChannel, AtatCmd, Config, Error, Response,
+    helpers::LossyStr, response_channel::ResponseChannel, AtatCmd, Config, Error, Response, ResponseSubscription,
 };
+use embassy_sync::pubsub::Subscriber;
 use embassy_time::{Duration, Instant, TimeoutError, Timer};
 use embedded_io_async::Write;
 use futures::{
@@ -14,7 +15,7 @@ pub struct Client<'a, W: Write, const INGRESS_BUF_SIZE: usize> {
     res_channel: &'a ResponseChannel<INGRESS_BUF_SIZE>,
     config: Config,
     cooldown_timer: Option<Timer>,
-
+    response_subscription: ResponseSubscription<'a, INGRESS_BUF_SIZE>
 }
 
 impl<'a, W: Write, const INGRESS_BUF_SIZE: usize> Client<'a, W, INGRESS_BUF_SIZE> {
@@ -27,7 +28,8 @@ impl<'a, W: Write, const INGRESS_BUF_SIZE: usize> Client<'a, W, INGRESS_BUF_SIZE
             writer,
             res_channel,
             config,
-            cooldown_timer: None,
+            cooldown_timer: None, 
+            response_subscription: res_channel.subscriber().unwrap()
         }
     }
 
@@ -46,17 +48,18 @@ impl<'a, W: Write, const INGRESS_BUF_SIZE: usize> Client<'a, W, INGRESS_BUF_SIZE
         timeout: Duration,
     ) -> Result<Response<INGRESS_BUF_SIZE>, Error> {
         self.wait_cooldown_timer().await;
-
-        let mut response_subscription = self.res_channel.subscriber().unwrap();
+        // if self.response_subscription.is_none() {
+        //     self.response_subscription = self.;
+        // }
         self.send_inner(cmd).await?;
-
-        let response = self
-            .with_timeout(timeout, response_subscription.next_message_pure())
-            .await
-            .map_err(|_| Error::Timeout);
+        let response = self.response_subscription.next_message_pure().await;
+        // let response = self
+        //     .with_timeout(timeout, self.response_subscription.next_message_pure())
+        //     .await
+        //     .map_err(|_| Error::Timeout);
 
         self.start_cooldown_timer();
-        response
+        Ok(response)
     }
 
     async fn send_inner(&mut self, cmd: &[u8]) -> Result<(), Error> {
@@ -118,9 +121,11 @@ impl<W: Write, const INGRESS_BUF_SIZE: usize> AtatClient for Client<'_, W, INGRE
             //MODEM_STATE.store(crate::ModemState::WaitingForNoReply, core::sync::atomic::Ordering::Relaxed);
             self.send_command(cmd_slice).await?;
             //MODEM_STATE.store(crate::ModemState::WaitingForUrc, core::sync::atomic::Ordering::Relaxed);
+            esp_println::print!("Expects no response");
             cmd.parse(Ok(&[]))
         } else {
             //MODEM_STATE.store(crate::ModemState::WaitingForReply, core::sync::atomic::Ordering::Relaxed);
+            esp_println::print!("Expects response");
             let response = self
                 .send_request(cmd_slice, Duration::from_millis(Cmd::MAX_TIMEOUT_MS.into()))
                 .await?;

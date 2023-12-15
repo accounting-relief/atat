@@ -126,13 +126,14 @@ impl<P: Parser> Digester for AtDigester<P> {
         // 1. Optionally discard space and echo
         let buf = parser::trim_start_ascii_space(input);
         let space_bytes = input.len() - buf.len();
-        let (buf, space_and_echo_bytes) = match nom::combinator::opt(parser::echo)(buf) {
-            Ok((buf, echo)) => (buf, space_bytes + echo.unwrap_or_default().len()),
-            Err(nom::Err::Incomplete(_)) => return (DigestResult::None, 0),
-            Err(_) => panic!("NOM ERROR - opt(echo)"),
-        };
+        let space_and_echo_bytes = space_bytes;
+        // let (buf, space_and_echo_bytes) = match nom::combinator::opt(parser::echo)(buf) {
+        //     Ok((buf, echo)) => (buf, space_bytes + echo.unwrap_or_default().len()),
+        //     Err(nom::Err::Incomplete(_)) => return (DigestResult::None, 0),
+        //     Err(_) => panic!("NOM ERROR - opt(echo)"),
+        // };
 
-        println!("I {:?}", buf);
+        //println!("I {:?} e {:?}", buf, space_and_echo_bytes);
         // Incomplete. Eat whitespace and echo and do nothing else.
         let incomplete = (DigestResult::None, space_and_echo_bytes);
 
@@ -140,7 +141,7 @@ impl<P: Parser> Digester for AtDigester<P> {
         //              || !self.expecting_response.unwrap().load(Ordering::Relaxed)
         //          {
         match P::parse(buf) {
-            Ok((urc, len)) => return (DigestResult::Urc(urc), len),
+            Ok((urc, len)) => {println!("URC");return (DigestResult::Urc(urc), len)},
             Err(ParseError::Incomplete) => return incomplete,
             _ => {}
         }
@@ -162,7 +163,10 @@ impl<P: Parser> Digester for AtDigester<P> {
         // println!("4. ");
         // Generic success replies
         match parser::success_response(buf) {
-            Ok((_, (result, len))) => return (result, len + space_and_echo_bytes),
+            Ok((_, (result, len))) => {
+                //println!("found resp {:?}, len {:?}", result, len + space_and_echo_bytes);
+                return (result, len + space_and_echo_bytes)
+            },
             Err(nom::Err::Incomplete(_)) => return incomplete,
 _ => {}
         }
@@ -178,26 +182,29 @@ _ => {}
 
         // Generic prompts for data
         if let Ok((_, (result, len))) = parser::prompt_response(buf) {
+            println!("PRMPT");
             return (result, len + space_and_echo_bytes);
         }
 
         // 4. Parse for error responses
         // Custom error matches first, if any
-                    match (self.custom_error)(buf) {
-                        Ok((response, len)) => {
-                            return (
-                                DigestResult::Response(Err(InternalError::Custom(response))),
-                                len + space_and_echo_bytes,
-                            )
-                        }
-                        Err(ParseError::Incomplete) => return incomplete,
-                        _ => {}
-                    }
+        match (self.custom_error)(buf) {
+            Ok((response, len)) => {
+                return (
+                    DigestResult::Response(Err(InternalError::Custom(response))),
+                    len + space_and_echo_bytes,
+                )
+            }
+            Err(ParseError::Incomplete) => return incomplete,
+            _ => {}
+        }
 
-                    // Generic error matches
-                    if let Ok((_, (result, len))) = parser::error_response(buf) {
-                        return (result, len + space_and_echo_bytes);
-                    }
+        // Generic error matches
+        if let Ok((_, (result, len))) = parser::error_response(buf) {
+            println!("GENERR");
+
+            return (result, len + space_and_echo_bytes);
+        }
                 //        println!("data ");
         //2. Match for URC's
         // match MODEM_STATE.load(Ordering::Relaxed) {
@@ -665,7 +672,7 @@ mod test {
         ];
 
         for (response, expected) in tests {
-            println!("Testing: {:?}", LossyStr(response));
+            //println!("Testing: {:?}", LossyStr(response));
 
             match nom::combinator::opt(parser::echo)(response) {
                 Ok((buf, _)) => {
