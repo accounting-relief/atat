@@ -118,18 +118,12 @@ impl<W: Write, const INGRESS_BUF_SIZE: usize> AtatClient for Client<'_, W, INGRE
         let cmd_vec = cmd.as_bytes();
         let cmd_slice = cmd.get_slice(&cmd_vec);
         if !Cmd::EXPECTS_RESPONSE_CODE {
-            //MODEM_STATE.store(crate::ModemState::WaitingForNoReply, core::sync::atomic::Ordering::Relaxed);
             self.send_command(cmd_slice).await?;
-            //MODEM_STATE.store(crate::ModemState::WaitingForUrc, core::sync::atomic::Ordering::Relaxed);
-            esp_println::print!("Expects no response");
             cmd.parse(Ok(&[]))
         } else {
-            //MODEM_STATE.store(crate::ModemState::WaitingForReply, core::sync::atomic::Ordering::Relaxed);
-            esp_println::print!("Expects response");
             let response = self
                 .send_request(cmd_slice, Duration::from_millis(Cmd::MAX_TIMEOUT_MS.into()))
                 .await?;
-            //MODEM_STATE.store(crate::ModemState::WaitingForUrc, core::sync::atomic::Ordering::Relaxed);
             cmd.parse((&response).into())
         }
     }

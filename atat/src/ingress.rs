@@ -138,13 +138,10 @@ impl<
         assert!(self.pos <= self.buf.len());
 
         while self.pos > 0 {
-            // esp_println::println!("bef dig");
             let digested = self.digester.digest(&self.buf[..self.pos]);
-            // esp_println::println!("after dig");
             let swallowed = match digested {
                 (DigestResult::None, swallowed) => {
                     if swallowed > 0 {
-                        //esp_println::println!("received e{:?}", self.buf);
                         debug!(
                             "Received echo or space ({}/{}): {:?}",
                             swallowed,
@@ -156,7 +153,6 @@ impl<
                     swallowed
                 }
                 (DigestResult::Prompt(prompt), swallowed) => {
-                    //esp_println::println!("received p{:?}", self.buf);
                     debug!("Received prompt ({}/{})", swallowed, self.pos);
 
                     self.res_publisher
@@ -166,7 +162,6 @@ impl<
                 }
                 (DigestResult::Urc(urc_line), swallowed) => {
                     if let Some(urc) = Urc::parse(urc_line) {
-                        //esp_println::println!("received urc{:?}", self.buf);
                         debug!(
                             "Received URC/{} ({}/{}): {:?}",
                             self.urc_publisher.space(),
@@ -187,10 +182,8 @@ impl<
                     match &resp {
                         Ok(r) => {
                             if r.is_empty() {
-                                // esp_println::println!("received empty OK{:?}", self.buf);
                                 debug!("Received OK ({}/{})", swallowed, self.pos,)
                             } else {
-                                // esp_println::println!("received resp{:?}", self.buf);
                                 debug!(
                                     "Received response ({}/{}): {:?}",
                                     swallowed,
@@ -200,7 +193,6 @@ impl<
                             }
                         }
                         Err(e) => {
-                            // esp_println::println!("received err{:?}", self.buf);
                             warn!(
                                 "Received error response ({}/{}): {:?}",
                                 swallowed, self.pos, e
