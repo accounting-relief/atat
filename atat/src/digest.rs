@@ -183,10 +183,10 @@ _ => {}
                     }
 
         // Generic prompts for data
-        if let Ok((_, (result, len))) = parser::prompt_response(buf) {
-            //println!("PRMPT");
-            return (result, len + space_and_echo_bytes);
-        }
+        // if let Ok((_, (result, len))) = parser::prompt_response(buf) {
+        //     //println!("PRMPT");
+        //     return (result, len + space_and_echo_bytes);
+        // }
 
         // 4. Parse for error responses
         // Custom error matches first, if any
@@ -357,7 +357,7 @@ pub mod parser {
         Ok((
             i,
             (
-                DigestResult::Response(Ok(trim_ascii_whitespace(data))),
+                DigestResult::Response(Ok(data)),//trim_ascii_whitespace()
                 data.len() + tag.len() + ws.len(),
             ),
         ))

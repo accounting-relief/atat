@@ -64,7 +64,8 @@ pub enum Error {
     CustomErrorWithMessage(heapless::String<128>),
 }
 
-pub(crate) struct Deserializer<'b> {
+/// AT cmd/response deserializer
+pub struct Deserializer<'b> {
     slice: &'b [u8],
     index: usize,
     struct_size_hint: Option<usize>,
@@ -177,8 +178,13 @@ impl<'a> Deserializer<'a> {
                 return Ok(&self.slice[start..]);
             } else {
                 if let Some(c) = self.peek() {
-                    if (c as char).is_alphanumeric() || (c as char).is_whitespace() {
+                    if (c as char).is_alphanumeric()
+                        || (c as char) == '.'
+                        || (c as char).is_whitespace()
+                    {
                         self.eat_char();
+                    } else if (c as char) == ',' {
+                        return Ok(&self.slice[start..self.index]);
                     } else {
                         return Err(Error::EofWhileParsingString);
                     }
@@ -191,7 +197,7 @@ impl<'a> Deserializer<'a> {
 
     fn parse_at(&mut self) -> Result<Option<()>> {
         // If we find a '+', check if it is an AT command identifier, ending in ':'
-        if self.parse_whitespace() == Some(b'+') || self.parse_whitespace() == Some(b'^')  {
+        if self.parse_whitespace() == Some(b'+') || self.parse_whitespace() == Some(b'^') {
             let index = self.index;
             loop {
                 match self.peek() {
@@ -231,6 +237,10 @@ impl<'a> Deserializer<'a> {
     fn peek(&mut self) -> Option<u8> {
         self.slice.get(self.index).copied()
     }
+
+    fn peek_next(&mut self) -> Option<u8> {
+        self.slice.get(self.index + 1).copied()
+    }
 }
 
 // NOTE(deserialize_*signed) we avoid parsing into u64 and then casting to a smaller integer, which
@@ -238,14 +248,32 @@ impl<'a> Deserializer<'a> {
 // Flash, when targeting non 64-bit architectures
 macro_rules! deserialize_unsigned {
     ($self:ident, $visitor:ident, $uxx:ident, $visit_uxx:ident) => {{
+        let _ = $self
+            .parse_whitespace()
+            .ok_or(Error::EofWhileParsingValue)?;
+        // remove/allow preceeding zeros
+        while $self.peek().is_some_and(|c| c == b'0') {
+            match $self.peek_next() {
+                Some(b'1'..=b'9') => {
+                    $self.eat_char();
+                    break;
+                }
+                Some(b'0') => {
+                    $self.eat_char();
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
         let peek = $self
             .parse_whitespace()
             .ok_or(Error::EofWhileParsingValue)?;
-
         match peek {
             b'-' => Err(Error::InvalidNumber),
             b'0' => {
                 $self.eat_char();
+
                 $visitor.$visit_uxx(0)
             }
             b'1'..=b'9' => {
@@ -473,7 +501,10 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 visitor.visit_borrowed_str(self.parse_str()?)
             }
             _ => {
-                if (peek as char).is_alphabetic() {
+                if (peek as char).is_alphabetic()
+                    || (peek as char) == '.'
+                    || (peek as char).is_alphanumeric()
+                {
                     visitor.visit_bytes(self.parse_bytes()?)
                 } else {
                     Err(Error::InvalidType)
@@ -515,12 +546,30 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         unreachable!()
     }
-
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         match self.parse_whitespace() {
+            Some(b'-') => {
+                // allow - and -- to be optional for everything
+                // TODO needs to be handled only for numbers... or configurable via derive...
+                if let Some(next) = self.slice.get(self.index + 1).copied() {
+                    if next == b',' {
+                        self.eat_char();
+                        return visitor.visit_none();
+                    } else if next == b'-' {
+                        if let Some(next_after) = self.slice.get(self.index + 2).copied() {
+                            if next_after == b',' {
+                                self.eat_char();
+                                self.eat_char();
+                                return visitor.visit_none();
+                            }
+                        }
+                    }
+                }
+                visitor.visit_some(self)
+            }
             Some(b'+' | b',' | b'^') | None => visitor.visit_none(),
             Some(_) => visitor.visit_some(self),
         }

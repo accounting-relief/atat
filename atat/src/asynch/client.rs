@@ -1,6 +1,7 @@
 use super::AtatClient;
 use crate::{
-    helpers::LossyStr, response_channel::ResponseChannel, AtatCmd, Config, Error, Response, ResponseSubscription,
+    helpers::LossyStr, response_channel::ResponseChannel, AtatCmd, Config, Error, Response,
+    ResponseSubscription,
 };
 use embassy_sync::pubsub::Subscriber;
 use embassy_time::{Duration, Instant, TimeoutError, Timer};
@@ -15,7 +16,7 @@ pub struct Client<'a, W: Write, const INGRESS_BUF_SIZE: usize> {
     res_channel: &'a ResponseChannel<INGRESS_BUF_SIZE>,
     config: Config,
     cooldown_timer: Option<Timer>,
-    response_subscription: ResponseSubscription<'a, INGRESS_BUF_SIZE>
+    response_subscription: ResponseSubscription<'a, INGRESS_BUF_SIZE>,
 }
 
 impl<'a, W: Write, const INGRESS_BUF_SIZE: usize> Client<'a, W, INGRESS_BUF_SIZE> {
@@ -28,8 +29,8 @@ impl<'a, W: Write, const INGRESS_BUF_SIZE: usize> Client<'a, W, INGRESS_BUF_SIZE
             writer,
             res_channel,
             config,
-            cooldown_timer: None, 
-            response_subscription: res_channel.subscriber().unwrap()
+            cooldown_timer: None,
+            response_subscription: res_channel.subscriber().unwrap(),
         }
     }
 
@@ -52,15 +53,62 @@ impl<'a, W: Write, const INGRESS_BUF_SIZE: usize> Client<'a, W, INGRESS_BUF_SIZE
         //     self.response_subscription = self.;
         // }
         self.send_inner(cmd).await?;
-        let response = self.response_subscription.next_message_pure().await;
+        // let response = self
+        //     .with_timeout(timeout)
+        //     .await
+        //     .map_err(|_| Error::Timeout)?;
+        self.start_cooldown_timer();
+        let start = Instant::now();
+        let expires = (self.config.get_response_timeout)(start, timeout);
+        let e = self.response_subscription.next_message_pure();
+        pin_mut!(e);
+        let response = match select(e, Timer::at(expires)).await {
+            Either::Left((r, _)) => {
+                //self.start_cooldown_timer();
+                r
+            }
+            Either::Right((_, _)) => {
+                //let new_expires = (self.config.get_response_timeout)(start, timeout);
+                //if new_expires <= expires {
+                // self.start_cooldown_timer();
+                return Err(Error::Timeout);
+                //}
+                //expires = new_expires;
+            }
+        };
+        //let response = self.response_subscription.next_message_pure().await;
         // let response = self
         //     .with_timeout(timeout, self.response_subscription.next_message_pure())
         //     .await
         //     .map_err(|_| Error::Timeout);
 
-        self.start_cooldown_timer();
+        //self.start_cooldown_timer();
         Ok(response)
     }
+
+    // async fn send_request(
+    //     &mut self,
+    //     cmd: &[u8],
+    //     timeout: Duration,
+    // ) -> Result<Response<INGRESS_BUF_SIZE>, Error> {
+    //     self.wait_cooldown_timer().await;
+    //     let mut response_subscription = self.res_channel.subscriber().unwrap();
+    //     // if self.response_subscription.is_none() {
+    //     //     self.response_subscription = self.;
+    //     // }
+    //     esp_println::println!("w");
+    //     self.send_inner(cmd).await?;
+    //     esp_println::println!("wa");
+    //     let response = self
+    //         .with_timeout(timeout, response_subscription.next_message_pure())
+    //         .await
+    //         .map_err(|_| Error::Timeout);
+
+    //     esp_println::println!("cd");
+    //     self.start_cooldown_timer();
+    //     esp_println::println!("cda");
+    //     response
+    // }
 
     async fn send_inner(&mut self, cmd: &[u8]) -> Result<(), Error> {
         if cmd.len() < 50 {
@@ -74,30 +122,35 @@ impl<'a, W: Write, const INGRESS_BUF_SIZE: usize> Client<'a, W, INGRESS_BUF_SIZE
         Ok(())
     }
 
-    async fn with_timeout<F: Future>(
-        &self,
-        timeout: Duration,
-        fut: F,
-    ) -> Result<F::Output, TimeoutError> {
-        let start = Instant::now();
-        let mut expires = (self.config.get_response_timeout)(start, timeout);
+    // async fn with_timeout<F: Future>(
+    //     &self,
+    //     timeout: Duration,
+    //     //fut: F,
+    // ) -> Result<F::Output, TimeoutError> {
+    //     let start = Instant::now();
+    //     let mut expires = (self.config.get_response_timeout)(start, timeout);
 
-        pin_mut!(fut);
+    //     //pin_mut!(fut);
 
-        loop {
-            fut = match select(fut, Timer::at(expires)).await {
-                Either::Left((r, _)) => return Ok(r),
-                Either::Right((_, fut)) => {
-                    let new_expires = (self.config.get_response_timeout)(start, timeout);
-                    if new_expires <= expires {
-                        return Err(TimeoutError);
-                    }
-                    expires = new_expires;
-                    fut
-                }
-            };
-        }
-    }
+    //     loop {
+    //         fut = match select(
+    //             self.response_subscription.next_message_pure(),
+    //             Timer::at(expires),
+    //         )
+    //         .await
+    //         {
+    //             Either::Left((r, _)) => return Ok(r),
+    //             Either::Right((_, fut)) => {
+    //                 //let new_expires = (self.config.get_response_timeout)(start, timeout);
+    //                 //if new_expires <= expires {
+    //                 return Err(TimeoutError);
+    //                 //}
+    //                 //expires = new_expires;
+    //                 fut
+    //             }
+    //         };
+    //     }
+    // }
 
     fn start_cooldown_timer(&mut self) {
         self.cooldown_timer = Some(Timer::after(self.config.cmd_cooldown));
@@ -124,6 +177,7 @@ impl<W: Write, const INGRESS_BUF_SIZE: usize> AtatClient for Client<'_, W, INGRE
             let response = self
                 .send_request(cmd_slice, Duration::from_millis(Cmd::MAX_TIMEOUT_MS.into()))
                 .await?;
+            //esp_println::println!("response {:?}", response);
             cmd.parse((&response).into())
         }
     }
