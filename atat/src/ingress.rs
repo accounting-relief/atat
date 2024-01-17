@@ -246,7 +246,7 @@ impl<
                     swallowed
                 }
                 (DigestResult::Urc(urc_line), swallowed) => {
-                    esp_println::println!("received  URC{:?}", urc_line);
+                    //esp_println::println!("received  URC{:?}", urc_line);
                     if let Some(urc) = Urc::parse(urc_line) {
                         debug!(
                             "Received URC/{} ({}/{}): {:?}",
@@ -281,7 +281,7 @@ impl<
                             }
                         }
                         Err(e) => {
-                            esp_println::println!("received Err{:?}", e);
+                            //esp_println::println!("received Err{:?}", e);
                             warn!(
                                 "Received error response ({}/{}): {:?}",
                                 swallowed, self.pos, e
