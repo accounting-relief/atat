@@ -292,10 +292,10 @@ impl<
                     // esp_println::print!("Published {:?}" ,resp);
                     if let Err(frame) = self.res_publisher.try_publish(resp.into()) {
                         // esp_println::println!("FAILED PUBLISH");
-                        
+
                         self.res_publisher.publish(frame).await;
                         // esp_println::println!("Waited to publish");
-                    } 
+                    }
                     swallowed
                 }
             };

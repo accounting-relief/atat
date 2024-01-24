@@ -565,8 +565,15 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                                 self.eat_char();
                                 return visitor.visit_none();
                             }
+                        } else {
+                            self.eat_char();
+                            return visitor.visit_none();
                         }
                     }
+                } else {
+                    //todo!("AALAEEA");
+                    self.eat_char();
+                    return visitor.visit_none();
                 }
                 visitor.visit_some(self)
             }
