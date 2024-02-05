@@ -170,6 +170,8 @@ impl<W: Write, const INGRESS_BUF_SIZE: usize> AtatClient for Client<'_, W, INGRE
     ) -> Result<Cmd::Response, Error> {
         let cmd_vec = cmd.as_bytes();
         let cmd_slice = cmd.get_slice(&cmd_vec);
+        //esp_println::println!("response {:?}", cmd_slice);
+
         if !Cmd::EXPECTS_RESPONSE_CODE {
             self.send_command(cmd_slice).await?;
             cmd.parse(Ok(&[]))

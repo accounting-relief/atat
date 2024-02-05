@@ -65,7 +65,9 @@ pub trait AtatIngress {
             match serial.read(buf).await {
                 Ok(received) => {
                     if received > 0 {
-                        //esp_println::println!("Got serial read {:?}", buf);
+                        if received > 30 {
+                            //esp_println::println!("AT: Got bytes {:?}", received);
+                        }
                         self.advance(received).await;
                         //esp_println::println!("Advanced!");
                     }
