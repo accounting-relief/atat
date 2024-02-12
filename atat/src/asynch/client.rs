@@ -1,7 +1,7 @@
 use super::AtatClient;
 use crate::{
-    helpers::LossyStr, response_channel::ResponseChannel, AtatCmd, Config, Error, Response,
-    ResponseSubscription,
+    digest::ParseError, helpers::LossyStr, response_channel::ResponseChannel, AtatCmd, Config,
+    Error, Response, ResponseSubscription,
 };
 use embassy_sync::pubsub::Subscriber;
 use embassy_time::{Duration, Instant, TimeoutError, Timer};
@@ -180,7 +180,15 @@ impl<W: Write, const INGRESS_BUF_SIZE: usize> AtatClient for Client<'_, W, INGRE
                 .send_request(cmd_slice, Duration::from_millis(Cmd::MAX_TIMEOUT_MS.into()))
                 .await?;
             //esp_println::println!("response {:?}", response);
-            cmd.parse((&response).into())
+            let parsed = cmd.parse((&response).into());
+            match parsed {
+                Ok(o) => Ok(o),
+                Err(e) => {
+                    esp_println::println!("unhandled response {:?}", &response);
+                    Err(e)
+                }
+            }
+            //esp_println::println!("response {:?}", response);
         }
     }
 }

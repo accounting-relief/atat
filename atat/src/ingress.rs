@@ -65,15 +65,16 @@ pub trait AtatIngress {
             match serial.read(buf).await {
                 Ok(received) => {
                     if received > 0 {
-                        if received > 30 {
-                            //esp_println::println!("AT: Got bytes {:?}", received);
-                        }
+                        // if received > 30 {
+                        //     esp_println::println!("AT: Got bytes {:?}", buf);
+                        // }
+                        //esp_println::println!("AT: len {:?}", received);
                         self.advance(received).await;
                         //esp_println::println!("Advanced!");
                     }
                 }
                 Err(e) => {
-                    //esp_println::println!("Got serial read error{:?}", e.kind());
+                    esp_println::println!("Got serial read error{:?}", e.kind());
                     error!("Got serial read error {:?}", e.kind());
                     self.clear();
                 }
@@ -224,7 +225,9 @@ impl<
     async fn advance(&mut self, commit: usize) {
         self.pos += commit;
         assert!(self.pos <= self.buf.len());
-
+        if self.pos > self.buf.len() {
+            panic!("AT overflooooow")
+        }
         while self.pos > 0 {
             let swallowed = match self.digester.digest(&self.buf[..self.pos]) {
                 (DigestResult::None, swallowed) => {

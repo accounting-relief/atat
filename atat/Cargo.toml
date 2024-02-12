@@ -34,17 +34,16 @@ nom = { version = "^7.1", default-features = false }
 
 log = { version = "^0.4", default-features = false, optional = true }
 defmt = { version = "^0.3", optional = true }
-#esp-println = "0.7.1"
-#esp-println = { version = "0.7.0", default-features = false, features = [
-#    "esp32s3",
-#    "jtag_serial",
-#    "critical-section",
-#    "colors",
-#] }
-[dev-dependencies]
-embassy-time = { version = "0.1.0", features = ["std", "generic-queue"] }
-critical-section = { version = "1.1", features = ["std"] }
-tokio = { version = "1", features = ["macros", "rt"] }
+esp-println = { version = "0.8.0", default-features = false, optional = true, features = [
+    "esp32s3",
+    "jtag-serial",
+    "critical-section",
+    "colors",
+] }
+# [dev-dependencies]
+# embassy-time = { version = "0.1.0", features = ["std", "generic-queue"] }
+# critical-section = { version = "1.1", features = ["std"] }
+# tokio = { version = "1", features = ["macros", "rt"] }
 
 [features]
 default = ["derive", "bytes", "async"]
@@ -55,3 +54,4 @@ custom-error-messages = []
 async = ["embedded-io-async", "futures"]
 std = ["serde_at/std", "nom/std", "embassy-time/std", "embedded-io/std"]
 hex_str_arrays = []
+esp-println =["dep:esp-println"]
